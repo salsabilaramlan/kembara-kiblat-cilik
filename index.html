@@ -362,8 +362,8 @@
                     <h4 class="text-2xl font-bold text-brandDarkBlue">Jom kenalkan diri! 👋</h4>
                     <p class="font-comic mt-2">Masukkan nama atau nama panggilan sebelum menjawab 4 soalan.</p>
                     <label for="playerName">Nama pemain</label>
-                    <input id="playerName" name="playerName" type="text" maxlength="40" autocomplete="off" required placeholder="Contoh: Aina 3 Cemerlang" aria-describedby="nameHelp nameError">
-                    <p id="nameHelp" class="storage-notice">Maksimum 40 aksara. Nama ini akan dipaparkan dalam carta pada peranti ini.</p>
+                    <input id="playerName" name="playerName" type="text" maxlength="40" autocomplete="off" required placeholder="Contoh: AinaCilik" aria-describedby="nameHelp nameError">
+                    <p id="nameHelp" class="storage-notice">Maksimum 40 aksara. Gunakan nama panggilan. Nama dan markah akan dipaparkan pada carta umum yang boleh dilihat pemain lain.</p>
                     <p id="nameError" class="form-error" role="alert"></p>
                     <button type="submit" class="player-button">Mula Kuiz →</button>
                 </form>
@@ -401,6 +401,7 @@
                     <h4 class="text-2xl font-bold text-brandDarkBlue">Syabas! Anda Telah Tamat Kuiz!</h4>
                     <p role="status" id="finalScoreText" class="text-lg font-comic text-gray-600">Anda mendapat Skor 4/4!</p>
                     <p id="saveResultText" class="storage-notice" role="status"></p>
+                    <button id="retrySaveBtn" type="button" onclick="syncLive()" class="hidden player-button">Cuba Simpan Semula</button>
                     <button onclick="restartQuiz()" class="bg-brandYellow text-brandDarkBlue font-bold px-6 py-3 rounded-2xl shadow-lg border-b-4 border-yellow-600 hover:bg-yellow-300">
                         <i class="fas fa-redo"></i> Main Lagi / Pemain Baharu
                     </button>
@@ -410,16 +411,17 @@
 
         <section id="carta" class="bg-white rounded-3xl p-6 md:p-8 shadow-md border-2 border-emerald-100" aria-labelledby="chartTitle">
             <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
-                <div><h3 id="chartTitle" class="text-2xl md:text-3xl font-bold text-brandDarkBlue">🏆 Carta Kedudukan Cilik</h3>
+                <div><h3 id="chartTitle" class="text-2xl md:text-3xl font-bold text-brandDarkBlue">🏆 Carta Kedudukan Live</h3>
                 <p class="storage-notice">Setiap kuiz yang selesai ialah satu rekod. Markah tertinggi di atas; markah seri berkongsi kedudukan.</p></div>
                 <button onclick="scrollToSection('kuiz')" class="player-button">Jom Main Kuiz</button>
             </div>
-            <p class="storage-notice"><strong>Carta peranti ini sahaja.</strong> Rekod disimpan dalam pelayar ini (localStorage), bukan dikongsi antara telefon atau komputer. Gunakan pelayar dan lokasi fail yang sama. Memadam data pelayar atau menutup sesi peribadi boleh menghilangkan rekod.</p>
+            <p class="storage-notice"><strong>Carta Live Google Sheets.</strong> Semua peranti berkongsi carta yang sama. Carta menyemak markah baharu setiap 10 saat apabila sambungan tersedia. Setiap kuiz yang selesai direkodkan; markah seri berkongsi kedudukan.</p>
+            <button type="button" onclick="syncLive()" class="player-button">↻ Segarkan Carta</button>
             <p id="storageStatus" class="storage-notice" role="status"></p>
             <p id="chartEmpty" class="text-center py-6 font-comic">Belum ada rekod. Jadilah pemain pertama! 🌟</p>
             <div id="chartWrap" class="chart-scroll hidden" tabindex="0" role="region" aria-label="Senarai kedudukan pemain">
                 <table class="chart-table">
-                    <caption class="sr-only">Carta semua percubaan kuiz pada pelayar ini</caption>
+                    <caption class="sr-only">Carta markah pemain dari Google Sheets</caption>
                     <thead><tr><th scope="col">Kedudukan</th><th scope="col">Nama pemain</th><th scope="col">Markah</th></tr></thead>
                     <tbody id="leaderboardBody"></tbody>
                 </table>
@@ -588,6 +590,9 @@
             }
         ];
 
+        // Public Apps Script deployment URL; no Google credentials are stored here.
+        const LIVE_API_URL = 'https://script.google.com/macros/s/AKfycbxrSxM1yFQzSSpcX_a0tvsSRc_wvn975f5EQztgOhXdb1UfGMKfLQNgCmRrsDK9PKiqIQ/exec';
+        const PENDING_KEY = 'kembara-kiblat-cilik.pending.v2';
         let currentQuestion = 0;
         let score = 0;
         let answered = false;
@@ -595,105 +600,162 @@
         let playerName = '';
         let attemptId = '';
         let resultSaved = false;
+        let selectedAnswers = [];
         let leaderboard = [];
-        let storageAvailable = true;
-        const LEADERBOARD_KEY = 'kembara-kiblat-cilik.leaderboard.v1';
+        let totalRecords = 0;
+        let pending = [];
+        let syncing = false;
+        let syncTimer;
+        let lastUpdated = null;
+        let localQueueAvailable = true;
 
         function normalizeName(value) {
-            return value.normalize('NFC').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+            return value.normalize('NFC').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0,40);
         }
-
-        function readLeaderboard() {
+        function validAttempt(row) {
+            return row && row.version === 1 && /^[a-zA-Z0-9-]{12,80}$/.test(row.id) &&
+                typeof row.name === 'string' && normalizeName(row.name).length > 0 && row.name.length <= 40 &&
+                Array.isArray(row.answers) && row.answers.length === 4 && row.answers.every(n => Number.isInteger(n) && n >= 0 && n < 4);
+        }
+        function loadPending() {
             try {
-                const raw = localStorage.getItem(LEADERBOARD_KEY);
-                if (raw === null) return [];
-                const rows = JSON.parse(raw);
-                if (!Array.isArray(rows) || !rows.every(row => row &&
-                    typeof row.id === 'string' && typeof row.name === 'string' &&
-                    normalizeName(row.name).length > 0 && row.name.length <= 40 &&
-                    Number.isInteger(row.score) && row.score >= 0 && row.score <= quizData.length &&
-                    row.total === quizData.length && Number.isFinite(row.completedAt))) {
-                    throw new Error('Invalid leaderboard data');
-                }
-                return rows;
-            } catch (error) {
-                storageAvailable = false;
-                return leaderboard;
-            }
+                const rows = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+                return Array.isArray(rows) ? rows.filter(validAttempt) : [];
+            } catch (_) { localQueueAvailable = false; return []; }
         }
-
+        function persistPending() {
+            try { localStorage.setItem(PENDING_KEY, JSON.stringify(pending)); }
+            catch (_) { localQueueAvailable = false; }
+        }
         function renderLeaderboard() {
-            const rows = [...leaderboard].sort((a, b) => b.score - a.score || a.completedAt - b.completedAt || a.id.localeCompare(b.id));
             const body = document.getElementById('leaderboardBody');
             body.replaceChildren();
             let rank = 0;
-            rows.forEach((row, index) => {
-                if (index === 0 || row.score !== rows[index - 1].score) rank = index + 1;
+            leaderboard.forEach((row,index) => {
+                if (index === 0 || row.score !== leaderboard[index-1].score) rank = index+1;
                 const tr = document.createElement('tr');
                 if (row.id === attemptId) tr.className = 'latest-result';
                 [String(rank), row.name, `${row.score} / ${row.total}`].forEach(value => {
-                    const td = document.createElement('td');
-                    td.textContent = value;
-                    tr.appendChild(td);
+                    const td = document.createElement('td'); td.textContent = value; tr.appendChild(td);
                 });
                 body.appendChild(tr);
             });
-            document.getElementById('chartEmpty').classList.toggle('hidden', rows.length > 0);
-            document.getElementById('chartWrap').classList.toggle('hidden', rows.length === 0);
-            document.getElementById('chartCount').textContent = `${rows.length} percubaan selesai • 1 markah bagi setiap jawapan betul.`;
-            document.getElementById('storageStatus').textContent = storageAvailable ? '' :
-                'Simpanan pelayar tidak tersedia atau rekod lama tidak dapat dibaca. Keputusan baharu hanya disimpan sementara dalam tab ini dan akan hilang apabila halaman dimuat semula.';
+            document.getElementById('chartEmpty').classList.toggle('hidden',leaderboard.length>0);
+            document.getElementById('chartEmpty').textContent = lastUpdated ? 'Belum ada rekod. Jadilah pemain pertama! 🌟' : 'Memuatkan carta dari Google Sheets…';
+            document.getElementById('chartWrap').classList.toggle('hidden',leaderboard.length===0);
+            document.getElementById('chartCount').textContent = lastUpdated ? `${totalRecords} percubaan selesai • Memaparkan sehingga 200 rekod tertinggi.` : '';
         }
-
-        function startQuiz(event) {
-            event.preventDefault();
-            if (quizActive) return;
-            const input = document.getElementById('playerName');
-            const name = normalizeName(input.value);
-            if (!name) {
-                document.getElementById('nameError').textContent = 'Sila masukkan nama dahulu.';
-                input.setAttribute('aria-invalid', 'true');
-                input.focus();
+        function readLive(attempt = '') {
+            return new Promise((resolve,reject) => {
+                const callback = `kiblatCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const script = document.createElement('script');
+                let settled = false;
+                function clean() {
+                    clearTimeout(timer); script.remove();
+                    // A late response should not throw after a timeout.
+                    window[callback] = () => {};
+                    setTimeout(() => { delete window[callback]; },60000);
+                }
+                const timer = setTimeout(() => {
+                    if (settled) return; settled=true; clean(); reject(new Error('Sambungan mengambil masa terlalu lama.'));
+                },20000);
+                window[callback] = data => {
+                    if (settled) return; settled=true; clean();
+                    if (!data || !data.ok || !Array.isArray(data.records)) return reject(new Error('Carta tidak dapat dibaca.'));
+                    const valid = data.records.every(r => r && typeof r.id === 'string' && typeof r.name === 'string' && Number.isInteger(r.score) && r.score>=0 && r.score<=4 && r.total===4 && Number.isFinite(r.completedAt));
+                    if (!valid) return reject(new Error('Data carta tidak sah.'));
+                    resolve(data);
+                };
+                script.onerror = () => { if(settled)return; settled=true;clean();reject(new Error('Tidak dapat menghubungi Google Sheets.')); };
+                const url = new URL(LIVE_API_URL);
+                url.searchParams.set('callback',callback);
+                url.searchParams.set('_',String(Date.now()));
+                if(attempt)url.searchParams.set('attempt',attempt);
+                script.src=url.href;
+                document.head.appendChild(script);
+            });
+        }
+        function useLiveData(data) {
+            leaderboard = data.records.sort((a,b)=>b.score-a.score || a.completedAt-b.completedAt || a.id.localeCompare(b.id));
+            totalRecords = data.count;
+            lastUpdated = new Date();
+            renderLeaderboard();
+        }
+        async function postAttempt(row) {
+            const controller = new AbortController();
+            const timer = setTimeout(()=>controller.abort(),15000);
+            try {
+                // Opaque POST response is NOT proof of saving. Confirm by reading the ID below.
+                await fetch(LIVE_API_URL,{method:'POST',mode:'no-cors',credentials:'omit',redirect:'follow',
+                    headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(row),signal:controller.signal});
+            } finally { clearTimeout(timer); }
+        }
+        function showPendingStatus() {
+            const current = pending.some(row=>row.id===attemptId);
+            if (current) document.getElementById('saveResultText').textContent =
+                'Markah belum disahkan dalam Google Sheets. Sedang mencuba semula…' +
+                (localQueueAvailable ? ' Rekod menunggu disimpan pada peranti ini.' : ' Jangan tutup tab ini sehingga markah disahkan.');
+            document.getElementById('retrySaveBtn').classList.toggle('hidden',!current);
+        }
+        async function syncLive() {
+            if (syncing) return;
+            clearTimeout(syncTimer);
+            if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(LIVE_API_URL)) {
+                document.getElementById('storageStatus').textContent='Carta live belum diaktifkan. Sambungan Google Sheets sedang disediakan.';
                 return;
             }
-            input.removeAttribute('aria-invalid');
-            document.getElementById('nameError').textContent = '';
-            playerName = name;
-            attemptId = window.crypto && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-            currentQuestion = 0;
-            score = 0;
-            resultSaved = false;
-            quizActive = true;
-            document.getElementById('activePlayer').textContent = playerName;
+            syncing = true;
+            try {
+                let data;
+                for (const row of pending.slice(0,3)) {
+                    data = await readLive(row.id);
+                    if (!data.saved) { await postAttempt(row); data = await readLive(row.id); }
+                    useLiveData(data);
+                    if (data.saved && data.saved.id===row.id) {
+                        pending = pending.filter(r=>r.id!==row.id); persistPending();
+                        if (row.id===attemptId) {
+                            document.getElementById('saveResultText').textContent='✓ Markah disahkan tersimpan dalam Google Sheets dan dikongsi pada carta live!';
+                            document.getElementById('retrySaveBtn').classList.add('hidden');
+                        }
+                    }
+                }
+                if (!data) useLiveData(await readLive());
+                const time = lastUpdated.toLocaleTimeString('ms-MY',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+                document.getElementById('storageStatus').textContent = `● Live • Dikemas kini ${time}` + (pending.length ? ` • ${pending.length} rekod masih menunggu pengesahan.` : '');
+            } catch (_) {
+                document.getElementById('storageStatus').textContent = 'Sambungan terganggu. Carta akan dicuba semula secara automatik.' + (lastUpdated ? ' Paparan ini ialah data terakhir yang berjaya diterima.' : ' Belum menerima data carta.');
+                if(!lastUpdated)document.getElementById('chartEmpty').textContent='Carta belum dapat dimuatkan. Semak sambungan internet.';
+            } finally {
+                showPendingStatus(); syncing=false;
+                syncTimer=setTimeout(syncLive,10000);
+            }
+        }
+        function startQuiz(event) {
+            event.preventDefault(); if(quizActive)return;
+            const input = document.getElementById('playerName');
+            const name = normalizeName(input.value);
+            if(!name) { document.getElementById('nameError').textContent='Sila masukkan nama dahulu.';input.setAttribute('aria-invalid','true');input.focus();return; }
+            input.removeAttribute('aria-invalid');document.getElementById('nameError').textContent='';
+            playerName=name;
+            attemptId = window.crypto && typeof crypto.randomUUID==='function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+            currentQuestion=0;score=0;resultSaved=false;selectedAnswers=[];quizActive=true;
+            document.getElementById('activePlayer').textContent=playerName;
             document.getElementById('playerForm').classList.add('hidden');
             document.getElementById('resultBox').classList.add('hidden');
             document.getElementById('quizBox').classList.remove('hidden');
+            document.getElementById('retrySaveBtn').classList.add('hidden');
             loadQuestion();
         }
-
         function saveQuizResult() {
-            if (resultSaved) return;
-            resultSaved = true;
-            if (storageAvailable) leaderboard = readLeaderboard();
-            leaderboard = leaderboard.filter(row => row.id !== attemptId);
-            leaderboard.push({ id: attemptId, name: playerName, score, total: quizData.length, completedAt: Date.now() });
-            if (storageAvailable) {
-                try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard)); }
-                catch (error) { storageAvailable = false; }
-            }
-            renderLeaderboard();
-            document.getElementById('saveResultText').textContent = storageAvailable ?
-                'Markah telah disimpan dalam carta pada pelayar ini. Lihat carta di bawah! 🏆' :
-                'Markah dipaparkan dalam carta sementara sahaja. Simpanan pelayar tidak tersedia.';
+            if(resultSaved)return;resultSaved=true;
+            const row={version:1,id:attemptId,name:playerName,answers:[...selectedAnswers]};
+            if(!validAttempt(row))return;
+            pending.push(row);persistPending();showPendingStatus();syncLive();
         }
-
-        document.getElementById('playerForm').addEventListener('submit', startQuiz);
-        window.addEventListener('storage', event => {
-            if (storageAvailable && (event.key === LEADERBOARD_KEY || event.key === null)) {
-                leaderboard = readLeaderboard();
-                renderLeaderboard();
-            }
-        });
+        document.getElementById('playerForm').addEventListener('submit',startQuiz);
+        window.addEventListener('online',syncLive);
+        document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncLive();});
+        pending=loadPending();
 
         function loadQuestion() {
             if (!quizActive) return;
@@ -724,6 +786,7 @@
         function selectOption(idx, btn) {
             if (!quizActive || answered) return;
             answered = true;
+            selectedAnswers[currentQuestion] = idx;
 
             const q = quizData[currentQuestion];
             const feedback = document.getElementById('feedbackBox');
@@ -779,8 +842,8 @@
             document.getElementById('playerName').focus();
         }
 
-        leaderboard = readLeaderboard();
         renderLeaderboard();
+        syncLive();
 
         // --- 4. GENERAL NAVIGATION & AUDIO TOGGLE ---
         function scrollToSection(id) {
