@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kembara Kiblat Cilik</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- AI Gesture Game Scripts (MediaPipe) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script>
+        window.tailwind = window.tailwind || {};
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brandYellow: '#FFD166',
+                        brandGreen: '#06D6A0',
+                        brandBlue: '#118AB2',
+                        brandDarkBlue: '#073B4C',
+                        brandRed: '#EF476F',
+                        brandPurple: '#8338EC'
+                    },
+                    fontFamily: {
+                        fredoka: ['Fredoka', 'sans-serif'],
+                        comic: ['Comic Neue', 'cursive']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #F8F9FA;
+        }
+        /* Floating Animation */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        .floating {
+            animation: float 4s ease-in-out infinite;
+        }
+
+        /* Compass Rotation Smoothness */
+        .compass-dial {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Bounce Animation for Buttons */
+        .btn-bounce:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F1F1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #06D6A0;
+            border-radius: 10px;
+        }
+        .hidden { display: none !important; }
+        section { scroll-margin-top: 100px; }
+        .player-panel { background: #f5f3ff; border: 2px solid #ddd6fe; padding: 24px; border-radius: 16px; }
+        .player-panel label { display: block; font-weight: 700; margin: 16px 0 8px; }
+        .player-panel input { width: 100%; padding: 12px; border: 2px solid #a78bfa; border-radius: 12px; color: #073b4c; background: white; }
+        button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid #118ab2; outline-offset: 3px; }
+        button:disabled { cursor: default; }
+        .player-button { padding: 12px 20px; border-radius: 12px; background: #8338ec; color: white; font-weight: 700; margin-top: 16px; }
+        .chart-scroll { overflow: auto; max-height: 420px; border: 1px solid #e2e8f0; border-radius: 14px; }
+        .chart-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        .chart-table th, .chart-table td { padding: 14px 12px; border-bottom: 1px solid #e2e8f0; }
+        .chart-table th { position: sticky; top: 0; background: #ecfdf5; color: #073b4c; }
+        .chart-table td:nth-child(2) { overflow-wrap: anywhere; min-width: 90px; }
+        .chart-table td:last-child { white-space: nowrap; }
+        .chart-table .latest-result { background: #fef3c7; }
+        .storage-notice { font-size: 14px; line-height: 1.6; color: #475569; margin: 12px 0; }
+        .form-error { color: #b91c1c; margin-top: 8px; }
+        @media (max-width: 380px) { #gesture-game { padding-left: 8px; padding-right: 8px; } }
+    </style>
+</head>
+<body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-brandYellow selection:text-brandDarkBlue">
+
+    <!-- Header / Nav -->
+    <header class="bg-brandBlue text-white shadow-lg sticky top-0 z-50 rounded-b-3xl">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="scrollToSection('hero')">
+                <div class="bg-brandYellow text-brandDarkBlue p-2.5 rounded-2xl shadow-md text-2xl font-bold border-2 border-white">
+                    🕋
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-wide text-amber-300">Kembara Kiblat</h1>
+                    <p class="text-xs text-blue-100 font-comic">Belajar Arah Solat Kita!</p>
+                </div>
+            </div>
+            <!-- Desktop Nav Menu -->
+            <nav class="hidden md:flex space-x-2">
+                <button onclick="scrollToSection('apa-itu')" class="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-white/20 transition">Apa Itu Kiblat?</button>
+                <button onclick="scrollToSection('sejarah')" class="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-white/20 transition">Kisah Kiblat</button>
+                <button onclick="scrollToSection('kompas')" class="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-white/20 transition">Cari Kiblat</button>
+                <button onclick="scrollToSection('gesture-game')" class="px-4 py-2 rounded-xl text-sm font-semibold hover:bg-white/20 transition text-brandYellow">Kamera AI</button>
+                <button onclick="scrollToSection('kuiz')" class="px-4 py-2 rounded-xl text-sm font-semibold bg-brandYellow text-brandDarkBlue hover:bg-yellow-300 transition shadow">Kuiz Cilik</button>
+            </nav>
+
+            <!-- Audio Controller Toggle -->
+            <button id="bgAudioBtn" onclick="toggleAudio()" class="bg-white/20 hover:bg-white/30 text-white p-2.5 rounded-full text-sm font-bold flex items-center space-x-1 border border-white/40">
+                <i class="fas fa-volume-up" id="audioIcon"></i>
+                <span class="text-xs hidden sm:inline" id="audioText">Muzik On</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-6 space-y-12">
+
+        <!-- Hero Section -->
+        <section id="hero" class="bg-gradient-to-r from-emerald-400 to-teal-500 rounded-3xl p-6 md:p-10 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between">
+            <div class="md:w-1/2 z-10 text-center md:text-left space-y-4">
+                <span class="bg-brandYellow text-brandDarkBlue px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider inline-block shadow">
+                    ✨ Modul Sekolah Rendah
+                </span>
+                <h2 class="text-3xl md:text-5xl font-extrabold leading-tight">
+                    Mari Belajar Mengenai <span class="text-brandYellow underline decoration-wavy">Kiblat!</span>
+                </h2>
+                <p class="text-base md:text-lg font-comic text-emerald-50">
+                    Hai kawan-kawan! Tahukah anda ke mana arah kita menghadap semasa bersolat? Jom kembara bersama untuk ketahui rahsia Kiblat dan Kaabah!
+                </p>
+                <div class="pt-2 flex flex-wrap justify-center md:justify-start gap-3">
+                    <button onclick="scrollToSection('kompas')" class="btn-bounce bg-brandYellow text-brandDarkBlue font-bold px-6 py-3 rounded-2xl shadow-lg border-b-4 border-yellow-600 flex items-center space-x-2">
+                        <i class="fas fa-compass text-lg"></i>
+                        <span>Cuba Kompas Interaktif</span>
+                    </button>
+                    <button onclick="scrollToSection('kuiz')" class="btn-bounce bg-brandPurple text-white font-bold px-6 py-3 rounded-2xl shadow-lg border-b-4 border-purple-800 flex items-center space-x-2">
+                        <i class="fas fa-gamepad text-lg"></i>
+                        <span>Main Kuiz</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Illustration Area -->
+            <div class="md:w-1/2 mt-8 md:mt-0 flex justify-center z-10 relative">
+                <div class="relative floating w-64 h-64 md:w-80 md:h-80 bg-white/20 rounded-full flex items-center justify-center p-6 backdrop-blur-sm border-4 border-white/30">
+                    <div class="text-center">
+                        <div class="text-8xl md:text-9xl mb-2 drop-shadow-md">🕋</div>
+                        <div class="bg-white text-emerald-800 font-bold px-4 py-1 rounded-full text-sm shadow">
+                            Kaabah di Makkah
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Decorative Circles -->
+            <div class="absolute -top-12 -right-12 w-48 h-48 bg-white/10 rounded-full blur-2xl"></div>
+            <div class="absolute -bottom-12 -left-12 w-64 h-64 bg-yellow-300/20 rounded-full blur-2xl"></div>
+        </section>
+
+        <!-- Section 1: Apa Itu Kiblat? -->
+        <section id="apa-itu" class="bg-white rounded-3xl p-6 md:p-8 shadow-md border-2 border-emerald-100">
+            <div class="text-center max-w-2xl mx-auto mb-8">
+                <h3 class="text-2xl md:text-3xl font-bold text-brandBlue flex items-center justify-center gap-2">
+                    <i class="fas fa-question-circle text-brandYellow"></i> Apa Itu Kiblat?
+                </h3>
+                <p class="text-gray-600 font-comic mt-2">Pernah tak anda terfikir kenapa semua umat Islam solat menghadap arah yang sama?</p>
+            </div>
+
+            <div class="grid md:grid-grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Card 1 -->
+                <div class="bg-amber-50 p-6 rounded-2xl border-2 border-amber-200 text-center hover:shadow-lg transition">
+                    <div class="w-16 h-16 bg-amber-200 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
+                        🧭
+                    </div>
+                    <h4 class="text-xl font-bold text-amber-900 mb-2">Arah Menghadap</h4>
+                    <p class="text-sm text-gray-700 font-comic">
+                        <strong>Kiblat</strong> bermaksud arah yang dituju oleh umat Islam ketika mendirikan solat.
+                    </p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200 text-center hover:shadow-lg transition">
+                    <div class="w-16 h-16 bg-emerald-200 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
+                        🕋
+                    </div>
+                    <h4 class="text-xl font-bold text-emerald-900 mb-2">Bangunan Kaabah</h4>
+                    <p class="text-sm text-gray-700 font-comic">
+                        Kiblat kita ialah <strong>Kaabah</strong> yang terletak di dalam Masjidil Haram, Makkah al-Mukarramah.
+                    </p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-sky-50 p-6 rounded-2xl border-2 border-sky-200 text-center hover:shadow-lg transition">
+                    <div class="w-16 h-16 bg-sky-200 rounded-full flex items-center justify-center mx-auto text-3xl mb-4">
+                        🤝
+                    </div>
+                    <h4 class="text-xl font-bold text-sky-900 mb-2">Simbol Perpaduan</h4>
+                    <p class="text-sm text-gray-700 font-comic">
+                        Menghadap Kiblat menyatukan jutaan umat Islam di seluruh dunia dalam satu arah yang sama!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Fact Box -->
+            <div class="mt-8 bg-brandYellow/30 border-2 border-brandYellow rounded-2xl p-4 flex items-center gap-4">
+                <span class="text-4xl">💡</span>
+                <div>
+                    <h5 class="font-bold text-amber-900">Tahukah Adik-Adik?</h5>
+                    <p class="text-xs md:text-sm text-amber-800 font-comic">
+                        Menghadap Kiblat adalah salah satu daripada <strong>Syarat Sah Solat</strong>. Tanpa menghadap Kiblat dengan sengaja, solat kita tidak sah!
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Kisah Kiblat -->
+        <section id="sejarah" class="bg-indigo-50 rounded-3xl p-6 md:p-8 shadow-md border-2 border-indigo-100">
+            <div class="text-center max-w-2xl mx-auto mb-6">
+                <h3 class="text-2xl md:text-3xl font-bold text-brandDarkBlue flex items-center justify-center gap-2">
+                    <i class="fas fa-book-open text-brandPurple"></i> Kisah Penukaran Kiblat
+                </h3>
+            </div>
+            <div class="flex flex-wrap justify-center gap-3 mb-6">
+                <button id="storyBtn1" onclick="showStoryStep(1)" class="px-4 py-2 rounded-xl text-sm font-bold bg-brandBlue text-white shadow">1. Permulaan</button>
+                <button id="storyBtn2" onclick="showStoryStep(2)" class="px-4 py-2 rounded-xl text-sm font-bold bg-white text-gray-600 hover:bg-gray-100">2. Keinginan</button>
+                <button id="storyBtn3" onclick="showStoryStep(3)" class="px-4 py-2 rounded-xl text-sm font-bold bg-white text-gray-600 hover:bg-gray-100">3. Perintah Allah</button>
+            </div>
+
+            <div id="storyContent" class="min-h-[150px] flex items-center justify-center bg-white p-4 rounded-2xl border-2 border-indigo-200">
+                <!-- Content loaded by JS -->
+            </div>
+        </section>
+
+        <!-- Section 3: Cari Kiblat (Kompas Manual) -->
+        <section id="kompas" class="bg-white rounded-3xl p-6 md:p-8 shadow-md border-2 border-brandYellow">
+            <div class="text-center max-w-2xl mx-auto mb-6">
+                <h3 class="text-2xl md:text-3xl font-bold text-brandDarkBlue flex items-center justify-center gap-2">
+                    <i class="fas fa-compass text-brandYellow"></i> Mari Cari Kiblat!
+                </h3>
+                <p class="text-gray-600 font-comic mt-2">Gunakan butang untuk memusingkan kompas menghadap arah Makkah (Barat Laut untuk Malaysia).</p>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-center gap-10">
+                <div class="relative w-64 h-64 bg-amber-50 rounded-full border-8 border-slate-200 shadow-inner flex items-center justify-center">
+                    <div class="absolute text-sm font-bold text-red-600 top-2">U</div>
+                    <div class="absolute text-sm font-bold text-gray-500 bottom-2">S</div>
+                    <div class="absolute text-sm font-bold text-gray-500 right-3">T</div>
+                    <div class="absolute text-sm font-bold text-gray-500 left-3">B</div>
+                    <div class="absolute top-12 left-10 text-2xl opacity-50" title="Arah Kiblat (Malaysia)">🕋</div>
+                    <div id="compassDial" class="w-full h-full absolute flex items-center justify-center transition-transform duration-500">
+                        <div class="w-3 h-24 bg-red-500 rounded-t-full absolute -top-0 shadow-md"></div>
+                        <div class="w-3 h-24 bg-slate-400 rounded-b-full absolute -bottom-0 shadow-md"></div>
+                        <div class="w-6 h-6 bg-white border-4 border-slate-800 rounded-full z-10"></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="rotateCompass(-15)" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold p-4 rounded-full shadow transition">
+                            <i class="fas fa-undo"></i> Kiri
+                        </button>
+                        <button onclick="rotateCompass(15)" class="bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold p-4 rounded-full shadow transition">
+                            Kanan <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+                    <button onclick="resetCompass()" class="text-sm text-slate-500 underline mb-4">Reset Kompas</button>
+                    <div id="kiblatStatusBox" class="p-4 rounded-2xl bg-amber-100 border-2 border-amber-300 text-amber-900 w-64 text-center">
+                        <p id="kiblatStatusText" class="text-sm font-comic">Sudut Kompas: <strong>0°</strong>. Pusingkan jarum menghadap ke arah barat laut (sekitar 292°)!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3.5: Permainan Tangan AI (Gesture Game) -->
+        <section id="gesture-game" class="bg-gradient-to-r from-teal-400 to-emerald-500 rounded-3xl p-6 md:p-8 shadow-xl border-2 border-emerald-300 text-white relative overflow-hidden">
+            <div class="text-center max-w-3xl mx-auto mb-6 relative z-10">
+                <span class="bg-brandYellow text-brandDarkBlue px-3 py-1 rounded-full text-xs font-bold shadow">Inovasi AI Cilik 🤖</span>
+                <h3 class="text-2xl md:text-4xl font-extrabold mt-3 drop-shadow-md">
+                    🤚 Permainan Kamera Kiblat
+                </h3>
+                <p class="text-emerald-50 font-comic mt-2 text-sm md:text-base">
+                    Gunakan kamera peranti anda! Letakkan tangan di <strong>sebelah kiri atau kanan skrin</strong> untuk memusingkan kompas. Letak di <strong>tengah</strong> untuk berhenti.
+                    Bila sudah menghadap barat laut, <strong>cubit jari</strong> (temukan ibu jari & telunjuk) untuk kunci jawapan!
+                </p>
+            </div>
+
+            <div class="flex flex-col lg:flex-row gap-8 items-center justify-center relative z-10">
+                <!-- Camera Feed Box -->
+                <div class="bg-white/20 p-4 rounded-3xl border-4 border-white/40 shadow-2xl backdrop-blur-sm flex-shrink-0">
+                    <div class="relative w-[280px] h-[210px] md:w-[320px] md:h-[240px] bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner">
+                        <video id="videoElement" class="hidden" autoplay playsinline></video>
+                        <!-- Canvas is mirrored using css transform to act like a mirror -->
+                        <canvas width="320" height="240" id="outputCanvas" class="absolute top-0 left-0 w-full h-full object-cover transform -scale-x-100"></canvas>
+                        <!-- Placeholder when cam is off -->
+                        <div id="camPlaceholder" class="text-center text-slate-400 font-comic">
+                            <i class="fas fa-camera text-5xl mb-3 text-slate-500 animate-pulse"></i>
+                            <p class="text-sm font-bold text-slate-300">Klik butang untuk buka kamera</p>
+                        </div>
+                    </div>
+                    <div class="mt-5 text-center flex justify-center gap-3">
+                        <button id="startCamBtn" onclick="startGestureGame()" class="bg-brandYellow text-brandDarkBlue font-bold px-6 py-3 rounded-2xl shadow-lg hover:bg-yellow-300 transition hover:-translate-y-1">
+                            <i class="fas fa-play mr-1"></i> Mula Main
+                        </button>
+                        <button id="resetCamBtn" onclick="resetGestureGame()" class="hidden bg-sky-500 text-white font-bold px-4 py-3 rounded-2xl shadow-lg hover:bg-sky-600 transition hover:-translate-y-1" title="Reset Kompas">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button id="stopCamBtn" onclick="stopGestureGame()" class="hidden bg-red-500 text-white font-bold px-6 py-3 rounded-2xl shadow-lg hover:bg-red-600 transition hover:-translate-y-1">
+                            <i class="fas fa-stop mr-1"></i> Berhenti
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Game Compass & Feedback -->
+                <div class="flex flex-col items-center space-y-6">
+                    <div class="w-64 h-64 md:w-72 md:h-72 rounded-full border-8 border-white bg-amber-50 shadow-2xl relative flex items-center justify-center p-2">
+                        <div class="absolute text-sm font-bold text-red-600 top-2">U</div>
+                        <div class="absolute text-sm font-bold text-gray-500 bottom-2">S</div>
+                        <div class="absolute text-sm font-bold text-gray-500 right-3">T</div>
+                        <div class="absolute text-sm font-bold text-gray-500 left-3">B</div>
+                        <div class="absolute top-10 left-8 text-3xl opacity-50" title="Arah Kiblat">🕋</div>
+                        <!-- Gesture Compass Needle -->
+                        <div id="gestureCompassDial" class="w-full h-full absolute flex items-center justify-center transition-transform duration-75">
+                            <div class="w-4 h-28 bg-red-500 rounded-t-full absolute -top-0 shadow-md"></div>
+                            <div class="w-4 h-28 bg-slate-400 rounded-b-full absolute -bottom-0 shadow-md"></div>
+                            <div class="w-10 h-10 bg-brandYellow border-4 border-brandDarkBlue rounded-full z-10 shadow-lg"></div>
+                        </div>
+                    </div>
+
+                    <!-- Status Display -->
+                    <div id="gestureStatusBox" class="bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent transition-all">
+                        <i class="fas fa-info-circle text-brandBlue mr-1"></i> Kamera belum aktif.
+                    </div>
+                </div>
+            </div>
+            <p class="text-center text-sm mt-5 relative z-10">Kamera AI memerlukan internet dan kebenaran kamera. Jika kamera disekat ketika membuka fail, gunakan pautan HTTPS atau localhost.</p>
+            <!-- Decorative Elements -->
+            <div class="absolute -top-20 -left-20 text-9xl opacity-10">✋</div>
+            <div class="absolute -bottom-10 -right-10 text-9xl opacity-10">🧭</div>
+        </section>
+
+        <!-- Section 4: Kuiz Interaktif (Kiblat Quest) -->
+        <section id="kuiz" class="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-3xl p-6 md:p-8 text-white shadow-xl">
+            <div class="text-center max-w-2xl mx-auto mb-6">
+                <span class="bg-brandYellow text-brandDarkBlue px-3 py-1 rounded-full text-xs font-bold">Uji Minda Cilik</span>
+                <h3 class="text-2xl md:text-4xl font-extrabold mt-2">
+                    🎮 Kuiz Kembara Kiblat
+                </h3>
+                <p class="text-purple-100 font-comic">Jawab soalan di bawah dan kumpul markah penuh!</p>
+            </div>
+
+            <div class="text-center mb-4"><button onclick="scrollToSection('carta')" class="bg-white/20 rounded-xl px-4 py-2 font-bold">🏆 Lihat Carta Kedudukan</button></div>
+            <!-- Quiz Container -->
+            <div class="bg-white text-slate-800 rounded-2xl p-6 shadow-2xl max-w-2xl mx-auto">
+                <form id="playerForm" class="player-panel" novalidate>
+                    <h4 class="text-2xl font-bold text-brandDarkBlue">Jom kenalkan diri! 👋</h4>
+                    <p class="font-comic mt-2">Masukkan nama atau nama panggilan sebelum menjawab 4 soalan.</p>
+                    <label for="playerName">Nama pemain</label>
+                    <input id="playerName" name="playerName" type="text" maxlength="40" autocomplete="off" required placeholder="Contoh: Aina 3 Cemerlang" aria-describedby="nameHelp nameError">
+                    <p id="nameHelp" class="storage-notice">Maksimum 40 aksara. Nama ini akan dipaparkan dalam carta pada peranti ini.</p>
+                    <p id="nameError" class="form-error" role="alert"></p>
+                    <button type="submit" class="player-button">Mula Kuiz →</button>
+                </form>
+                <div id="quizBox" class="hidden">
+                    <p class="mb-4 font-bold text-brandPurple">Pemain: <span id="activePlayer"></span></p>
+                    <div class="flex justify-between items-center border-b pb-3 mb-4">
+                        <span id="questionCount" class="text-xs font-bold bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
+                            Soalan 1 daripada 4
+                        </span>
+                        <span id="scoreTracker" class="text-xs font-bold bg-amber-100 text-amber-800 px-3 py-1 rounded-full">
+                            Skor: 0
+                        </span>
+                    </div>
+
+                    <h4 tabindex="-1" id="questionText" class="text-lg md:text-xl font-bold mb-4 text-slate-800">
+                        Apakah nama bangunan suci yang menjadi arah Kiblat umat Islam?
+                    </h4>
+
+                    <div id="optionsContainer" class="space-y-3 font-comic">
+                        <!-- Options generated dynamically -->
+                    </div>
+
+                    <div role="status" id="feedbackBox" class="mt-4 p-3 rounded-xl hidden text-sm font-bold text-center"></div>
+
+                    <div class="mt-6 flex justify-end">
+                        <button id="nextBtn" onclick="nextQuestion()" class="hidden bg-brandGreen text-white font-bold px-6 py-2.5 rounded-xl shadow hover:bg-emerald-600">
+                            Soalan Seterusnya <i class="fas fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Result Box (Hidden by default) -->
+                <div id="resultBox" class="hidden text-center py-6 space-y-4">
+                    <div class="text-6xl animate-bounce">🏆</div>
+                    <h4 class="text-2xl font-bold text-brandDarkBlue">Syabas! Anda Telah Tamat Kuiz!</h4>
+                    <p role="status" id="finalScoreText" class="text-lg font-comic text-gray-600">Anda mendapat Skor 4/4!</p>
+                    <p id="saveResultText" class="storage-notice" role="status"></p>
+                    <button onclick="restartQuiz()" class="bg-brandYellow text-brandDarkBlue font-bold px-6 py-3 rounded-2xl shadow-lg border-b-4 border-yellow-600 hover:bg-yellow-300">
+                        <i class="fas fa-redo"></i> Main Lagi / Pemain Baharu
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="carta" class="bg-white rounded-3xl p-6 md:p-8 shadow-md border-2 border-emerald-100" aria-labelledby="chartTitle">
+            <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+                <div><h3 id="chartTitle" class="text-2xl md:text-3xl font-bold text-brandDarkBlue">🏆 Carta Kedudukan Cilik</h3>
+                <p class="storage-notice">Setiap kuiz yang selesai ialah satu rekod. Markah tertinggi di atas; markah seri berkongsi kedudukan.</p></div>
+                <button onclick="scrollToSection('kuiz')" class="player-button">Jom Main Kuiz</button>
+            </div>
+            <p class="storage-notice"><strong>Carta peranti ini sahaja.</strong> Rekod disimpan dalam pelayar ini (localStorage), bukan dikongsi antara telefon atau komputer. Gunakan pelayar dan lokasi fail yang sama. Memadam data pelayar atau menutup sesi peribadi boleh menghilangkan rekod.</p>
+            <p id="storageStatus" class="storage-notice" role="status"></p>
+            <p id="chartEmpty" class="text-center py-6 font-comic">Belum ada rekod. Jadilah pemain pertama! 🌟</p>
+            <div id="chartWrap" class="chart-scroll hidden" tabindex="0" role="region" aria-label="Senarai kedudukan pemain">
+                <table class="chart-table">
+                    <caption class="sr-only">Carta semua percubaan kuiz pada pelayar ini</caption>
+                    <thead><tr><th scope="col">Kedudukan</th><th scope="col">Nama pemain</th><th scope="col">Markah</th></tr></thead>
+                    <tbody id="leaderboardBody"></tbody>
+                </table>
+            </div>
+            <p id="chartCount" class="storage-notice"></p>
+        </section>
+
+        <!-- Section 5: Ringkasan & Amalan Utama -->
+        <section class="bg-amber-100 rounded-3xl p-6 border-2 border-amber-300 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="text-5xl">🌟</div>
+                <div>
+                    <h4 class="font-bold text-amber-900 text-lg">Ingatan Mesra Untuk Adik-Adik:</h4>
+                    <p class="text-xs md:text-sm text-amber-800 font-comic">
+                        Pastikan anda sentiasa bersolat dengan menghadap Kiblat dengan betul, bersih daripada hadas, dan menutup aurat!
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-brandDarkBlue text-white mt-12 py-8 rounded-t-3xl">
+        <div class="max-w-6xl mx-auto px-4 text-center space-y-3">
+            <div class="flex justify-center items-center space-x-2 text-xl font-bold text-amber-300">
+                <span>🕋</span>
+                <span>Kembara Kiblat Cilik</span>
+            </div>
+            <p class="text-xs text-slate-300 font-comic max-w-md mx-auto">
+                Bahan pembelajaran interaktif Pendidikan Islam Sekolah Rendah. Sesuai untuk kegunaan murid, guru, dan ibu bapa.
+            </p>
+            <div class="text-xs text-slate-400 pt-2 border-t border-slate-700">
+                &copy; Hak Cipta Pembelajaran Interaktif Sekolah Rendah.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. STORY LOGIC ---
+        const storySteps = [
+            {
+                title: "1. Kiblat Pertama Umat Islam",
+                icon: "🕌",
+                text: "Pada awal Islam, Rasulullah ﷺ dan para sahabat bersolat menghadap ke <strong>Masjidil Aqsa</strong> di Baitulmaqdis (Palestin) selama kira-kira 16 hingga 17 bulan.",
+                bg: "bg-amber-50",
+                borderColor: "border-amber-300"
+            },
+            {
+                title: "2. Keinginan Rasulullah ﷺ",
+                icon: "🤲",
+                text: "Nabi Muhammad ﷺ amat merindui untuk menghadap ke arah <strong>Kaabah</strong> di Makkah (binaan Nabi Ibrahim a.s.). Baginda sering mendongak ke langit berdoa memohon petunjuk Allah.",
+                bg: "bg-sky-50",
+                borderColor: "border-sky-300"
+            },
+            {
+                title: "3. Perintah Allah SWT (Pertukaran Kiblat)",
+                icon: "🕋",
+                text: "Allah menurunkan wahyu (Surah Al-Baqarah: 144) memerintahkan Rasulullah ﷺ memalingkan wajah ke arah <strong>Masjidil Haram (Kaabah)</strong>. Sejak itu, Kaabah kekal menjadi Kiblat hingga akhir zaman!",
+                bg: "bg-emerald-50",
+                borderColor: "border-emerald-300"
+            }
+        ];
+
+        function showStoryStep(stepNum) {
+            const index = stepNum - 1;
+            const data = storySteps[index];
+            const container = document.getElementById('storyContent');
+
+            if (!container) return; // Semakan keselamatan jika elemen tiada
+
+            // Update Active Buttons
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`storyBtn${i}`);
+                if (btn) {
+                    if (i === stepNum) {
+                        btn.className = "px-4 py-2 rounded-xl text-sm font-bold bg-brandBlue text-white shadow";
+                    } else {
+                        btn.className = "px-4 py-2 rounded-xl text-sm font-bold bg-white text-gray-600 hover:bg-gray-100";
+                    }
+                }
+            }
+
+            // Render Story
+            container.innerHTML = `
+                <div class="flex flex-col md:flex-row items-center gap-6 w-full p-2">
+                    <div class="text-6xl p-4 bg-white rounded-2xl shadow-md border border-gray-100 flex-shrink-0">
+                        ${data.icon}
+                    </div>
+                    <div class="space-y-2">
+                        <h4 class="text-lg font-bold text-brandDarkBlue">${data.title}</h4>
+                        <p class="text-sm text-gray-700 font-comic leading-relaxed">${data.text}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Initialize First Story Step
+        showStoryStep(1);
+
+
+        // --- 2. INTERACTIVE COMPASS LOGIC ---
+        let currentRotation = 0;
+
+        function rotateCompass(deg) {
+            currentRotation += deg;
+            const dial = document.getElementById('compassDial');
+            dial.style.transform = `rotate(${currentRotation}deg)`;
+            checkCompassStatus();
+        }
+
+        function resetCompass() {
+            currentRotation = 0;
+            const dial = document.getElementById('compassDial');
+            dial.style.transform = `rotate(0deg)`;
+            checkCompassStatus();
+        }
+
+        function checkCompassStatus() {
+            const statusText = document.getElementById('kiblatStatusText');
+            const statusBox = document.getElementById('kiblatStatusBox');
+
+            // Normalize angle to 0-360
+            let normalizedDeg = (currentRotation % 360 + 360) % 360;
+
+            // Kiblat target is approximately 290-300 degrees
+            if (normalizedDeg >= 280 && normalizedDeg <= 310) {
+                statusText.innerHTML = "🎉 <strong>TAHNIAH!</strong> Kompas kini tepat menghadap ke arah Kaabah!";
+                statusBox.className = "p-4 rounded-2xl bg-emerald-100 border-2 border-emerald-400 text-emerald-900";
+            } else {
+                statusText.innerHTML = `Sudut Kompas: <strong>${normalizedDeg}°</strong>. Pusingkan jarum menghadap ke arah barat laut (sekitar 292°)!`;
+                statusBox.className = "p-4 rounded-2xl bg-amber-100 border-2 border-amber-300 text-amber-900";
+            }
+        }
+
+        function showTip(type) {
+            if (type === 'bayang') {
+                alert("☀️ Petua Bayang-Bayang:\nPada tarikh 28 Mei & 16 Julai setiap tahun, matahari berada tepat di atas Kaabah! Bayang-bayang tiang di seluruh dunia pada waktu itu menunjukkan arah Kiblat.");
+            } else if (type === 'telefon') {
+                alert("📱 Aplikasi Telefon:\nAnda boleh menggunakan aplikasi Kompas terbina dalam telefon pintar atau aplikasi Kiblat rasmi JAKIM untuk mencari arah Kiblat dengan mudah.");
+            }
+        }
+
+
+        // --- 3. QUIZ LOGIC ---
+        const quizData = [
+            {
+                question: "Apakah nama bangunan suci yang menjadi arah Kiblat umat Islam?",
+                options: ["Masjid Nabawi", "Kaabah", "Piramid", "Masjid Negara"],
+                answer: 1
+            },
+            {
+                question: "Di kota manakah Kaabah berada?",
+                options: ["Madinah", "Jerusalem", "Makkah", "Kaherah"],
+                answer: 2
+            },
+            {
+                question: "Apakah Kiblat pertama umat Islam sebelum bertukar ke Kaabah?",
+                options: ["Masjidil Aqsa", "Masjid Quba", "Masjidil Haram", "Masjid Terapung"],
+                answer: 0
+            },
+            {
+                question: "Menghadap Kiblat adalah salah satu daripada...",
+                options: ["Rukun Wuduk", "Syarat Sah Solat", "Sunat Ab'ad", "Perkara Makruh"],
+                answer: 1
+            }
+        ];
+
+        let currentQuestion = 0;
+        let score = 0;
+        let answered = false;
+        let quizActive = false;
+        let playerName = '';
+        let attemptId = '';
+        let resultSaved = false;
+        let leaderboard = [];
+        let storageAvailable = true;
+        const LEADERBOARD_KEY = 'kembara-kiblat-cilik.leaderboard.v1';
+
+        function normalizeName(value) {
+            return value.normalize('NFC').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+        }
+
+        function readLeaderboard() {
+            try {
+                const raw = localStorage.getItem(LEADERBOARD_KEY);
+                if (raw === null) return [];
+                const rows = JSON.parse(raw);
+                if (!Array.isArray(rows) || !rows.every(row => row &&
+                    typeof row.id === 'string' && typeof row.name === 'string' &&
+                    normalizeName(row.name).length > 0 && row.name.length <= 40 &&
+                    Number.isInteger(row.score) && row.score >= 0 && row.score <= quizData.length &&
+                    row.total === quizData.length && Number.isFinite(row.completedAt))) {
+                    throw new Error('Invalid leaderboard data');
+                }
+                return rows;
+            } catch (error) {
+                storageAvailable = false;
+                return leaderboard;
+            }
+        }
+
+        function renderLeaderboard() {
+            const rows = [...leaderboard].sort((a, b) => b.score - a.score || a.completedAt - b.completedAt || a.id.localeCompare(b.id));
+            const body = document.getElementById('leaderboardBody');
+            body.replaceChildren();
+            let rank = 0;
+            rows.forEach((row, index) => {
+                if (index === 0 || row.score !== rows[index - 1].score) rank = index + 1;
+                const tr = document.createElement('tr');
+                if (row.id === attemptId) tr.className = 'latest-result';
+                [String(rank), row.name, `${row.score} / ${row.total}`].forEach(value => {
+                    const td = document.createElement('td');
+                    td.textContent = value;
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+            document.getElementById('chartEmpty').classList.toggle('hidden', rows.length > 0);
+            document.getElementById('chartWrap').classList.toggle('hidden', rows.length === 0);
+            document.getElementById('chartCount').textContent = `${rows.length} percubaan selesai • 1 markah bagi setiap jawapan betul.`;
+            document.getElementById('storageStatus').textContent = storageAvailable ? '' :
+                'Simpanan pelayar tidak tersedia atau rekod lama tidak dapat dibaca. Keputusan baharu hanya disimpan sementara dalam tab ini dan akan hilang apabila halaman dimuat semula.';
+        }
+
+        function startQuiz(event) {
+            event.preventDefault();
+            if (quizActive) return;
+            const input = document.getElementById('playerName');
+            const name = normalizeName(input.value);
+            if (!name) {
+                document.getElementById('nameError').textContent = 'Sila masukkan nama dahulu.';
+                input.setAttribute('aria-invalid', 'true');
+                input.focus();
+                return;
+            }
+            input.removeAttribute('aria-invalid');
+            document.getElementById('nameError').textContent = '';
+            playerName = name;
+            attemptId = window.crypto && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            currentQuestion = 0;
+            score = 0;
+            resultSaved = false;
+            quizActive = true;
+            document.getElementById('activePlayer').textContent = playerName;
+            document.getElementById('playerForm').classList.add('hidden');
+            document.getElementById('resultBox').classList.add('hidden');
+            document.getElementById('quizBox').classList.remove('hidden');
+            loadQuestion();
+        }
+
+        function saveQuizResult() {
+            if (resultSaved) return;
+            resultSaved = true;
+            if (storageAvailable) leaderboard = readLeaderboard();
+            leaderboard = leaderboard.filter(row => row.id !== attemptId);
+            leaderboard.push({ id: attemptId, name: playerName, score, total: quizData.length, completedAt: Date.now() });
+            if (storageAvailable) {
+                try { localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(leaderboard)); }
+                catch (error) { storageAvailable = false; }
+            }
+            renderLeaderboard();
+            document.getElementById('saveResultText').textContent = storageAvailable ?
+                'Markah telah disimpan dalam carta pada pelayar ini. Lihat carta di bawah! 🏆' :
+                'Markah dipaparkan dalam carta sementara sahaja. Simpanan pelayar tidak tersedia.';
+        }
+
+        document.getElementById('playerForm').addEventListener('submit', startQuiz);
+        window.addEventListener('storage', event => {
+            if (storageAvailable && (event.key === LEADERBOARD_KEY || event.key === null)) {
+                leaderboard = readLeaderboard();
+                renderLeaderboard();
+            }
+        });
+
+        function loadQuestion() {
+            if (!quizActive) return;
+            answered = false;
+            const q = quizData[currentQuestion];
+            document.getElementById('nextBtn').textContent = currentQuestion === quizData.length - 1 ? 'Lihat Keputusan 🏆' : 'Soalan Seterusnya →';
+            document.getElementById('questionCount').innerText = `Soalan ${currentQuestion + 1} daripada ${quizData.length}`;
+            document.getElementById('scoreTracker').innerText = `Skor: ${score}`;
+            document.getElementById('questionText').innerText = q.question;
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+
+            const feedback = document.getElementById('feedbackBox');
+            feedback.classList.add('hidden');
+
+            document.getElementById('nextBtn').classList.add('hidden');
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'w-full text-left p-3.5 rounded-xl border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition font-semibold flex justify-between items-center';
+                btn.innerHTML = `<span>${idx + 1}. ${opt}</span> <i class="far fa-circle text-gray-300"></i>`;
+                btn.onclick = () => selectOption(idx, btn);
+                optionsContainer.appendChild(btn);
+            });
+            document.getElementById('questionText').focus({ preventScroll: true });
+        }
+
+        function selectOption(idx, btn) {
+            if (!quizActive || answered) return;
+            answered = true;
+
+            const q = quizData[currentQuestion];
+            const feedback = document.getElementById('feedbackBox');
+            const options = document.getElementById('optionsContainer').children;
+
+            if (idx === q.answer) {
+                score++;
+                document.getElementById('scoreTracker').innerText = `Skor: ${score}`;
+                btn.className = "w-full text-left p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-100 text-emerald-900 font-semibold flex justify-between items-center";
+                btn.querySelector('i').className = "fas fa-check-circle text-emerald-600";
+                feedback.innerText = "✨ Tepat sekali! Jawapan anda betul!";
+                feedback.className = "mt-4 p-3 rounded-xl bg-emerald-100 text-emerald-800 text-sm font-bold text-center border border-emerald-300";
+            } else {
+                btn.className = "w-full text-left p-3.5 rounded-xl border-2 border-red-500 bg-red-100 text-red-900 font-semibold flex justify-between items-center";
+                btn.querySelector('i').className = "fas fa-times-circle text-red-600";
+                // Highlight correct option
+                options[q.answer].className = "w-full text-left p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold flex justify-between items-center";
+                feedback.innerText = `❌ Kurang tepat. Jawapan sebenar ialah: ${q.options[q.answer]}`;
+                feedback.className = "mt-4 p-3 rounded-xl bg-red-100 text-red-800 text-sm font-bold text-center border border-red-300";
+            }
+
+            Array.from(options).forEach(option => { option.disabled = true; });
+            feedback.classList.remove('hidden');
+            document.getElementById('nextBtn').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            if (!quizActive || !answered) return;
+            currentQuestion++;
+            if (currentQuestion < quizData.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            if (!quizActive || currentQuestion !== quizData.length) return;
+            quizActive = false;
+            document.getElementById('quizBox').classList.add('hidden');
+            const resultBox = document.getElementById('resultBox');
+            resultBox.classList.remove('hidden');
+            document.getElementById('finalScoreText').innerText = `Tahniah, ${playerName}! Anda mendapat ${score} daripada ${quizData.length} markah!`;
+            saveQuizResult();
+        }
+
+        function restartQuiz() {
+            quizActive = false;
+            document.getElementById('resultBox').classList.add('hidden');
+            document.getElementById('quizBox').classList.add('hidden');
+            document.getElementById('playerForm').classList.remove('hidden');
+            document.getElementById('playerName').value = '';
+            document.getElementById('playerName').focus();
+        }
+
+        leaderboard = readLeaderboard();
+        renderLeaderboard();
+
+        // --- 4. GENERAL NAVIGATION & AUDIO TOGGLE ---
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        let isAudioPlaying = false;
+        function toggleAudio() {
+            const icon = document.getElementById('audioIcon');
+            const text = document.getElementById('audioText');
+            isAudioPlaying = !isAudioPlaying;
+            if (isAudioPlaying) {
+                icon.className = "fas fa-volume-up";
+                text.innerText = "Muzik On";
+                alert("🎵 Muzik latar mesra kanak-kanak diaktifkan!");
+            } else {
+                icon.className = "fas fa-volume-mute";
+                text.innerText = "Muzik Off";
+            }
+        }
+
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('outputCanvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        let gestureCamera = null;
+        let isGameRunning = false;
+        let isAnswerLocked = false;
+        let currentGestureRotation = 0;
+
+        // Initialize MediaPipe Hands Configuration
+        const hands = typeof Hands === 'function' ? new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }}) : null;
+        if (hands) {
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1, // Faster processing for web
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+        // Handle AI processing results
+        hands.onResults((results) => {
+            if (!isGameRunning) return;
+
+            // Clear previous canvas frame
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            // Draw camera feed
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                // Draw hand skeleton (green lines, yellow dots)
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#06D6A0', lineWidth: 4});
+                drawLandmarks(canvasCtx, landmarks, {color: '#FFD166', lineWidth: 2, radius: 4});
+
+                // Get coordinates for index finger tip (8) and thumb tip (4)
+                const indexTip = landmarks[8];
+                const thumbTip = landmarks[4];
+
+                if (!isAnswerLocked) {
+                    // Check for "Pinch" gesture FIRST
+                    // Calculate distance between thumb and index finger
+                    const dx = indexTip.x - thumbTip.x;
+                    const dy = indexTip.y - thumbTip.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const isPinching = dist < 0.06; // Sensitiviti dipermudahkan sedikit untuk kanak-kanak
+                    const statusBox = document.getElementById('gestureStatusBox');
+                    if (isPinching) {
+                        lockGestureAnswer(currentGestureRotation);
+                    } else {
+                        // Kawalan Pusingan Kompas Berterusan (Zon Kiri/Kanan)
+                        // Video adalah 'mirrored', jadi paksi fizikal ialah (1 - x)
+                        const physicalX = 1 - indexTip.x; 
+                        let directionText = "✋ Di Tengah (Berhenti)";
+                        // Zon Kiri (Kurang dari 0.4) -> Pusing Kiri
+                        if (physicalX < 0.4) {
+                            const speed = (0.4 - physicalX) * 15; // Lebih ke kiri, lebih laju
+                            currentGestureRotation -= speed;
+                            directionText = "⏪ Pusing Kiri";
+                        } 
+                        // Zon Kanan (Lebih dari 0.6) -> Pusing Kanan
+                        else if (physicalX > 0.6) {
+                            const speed = (physicalX - 0.6) * 15; // Lebih ke kanan, lebih laju
+                            currentGestureRotation += speed;
+                            directionText = "⏩ Pusing Kanan";
+                        }
+
+                        // Kemas kini visual kompas
+                        document.getElementById('gestureCompassDial').style.transform = `rotate(${currentGestureRotation}deg)`;
+                        statusBox.innerHTML = `<span class='text-brandPurple'>${directionText}</span><br><span class='text-xs'>Cubit jari bila arah tepat!</span>`;
+                        statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-brandPurple text-sm transition-all";
+                    }
+                }
+            } else {
+                if (!isAnswerLocked) {
+                    const statusBox = document.getElementById('gestureStatusBox');
+                    statusBox.innerHTML = "<i class='fas fa-search'></i> Mencari tangan anda... Tunjuk ke kamera!";
+                    statusBox.className = "bg-white/95 text-gray-500 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent text-sm";
+                }
+            }
+            canvasCtx.restore();
+        });
+
+        }
+
+        // Function to start the camera and game
+        async function startGestureGame() {
+            if (!hands || typeof Camera !== 'function') {
+                document.getElementById('gestureStatusBox').textContent = 'AI belum dimuatkan. Sambungkan internet dan muat semula halaman untuk menggunakan kamera.';
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                document.getElementById('gestureStatusBox').textContent = 'Kamera tidak tersedia. Cuba pelayar terkini melalui HTTPS atau localhost dan benarkan akses kamera.';
+                return;
+            }
+            document.getElementById('camPlaceholder').style.display = 'none';
+            document.getElementById('startCamBtn').classList.add('hidden');
+            document.getElementById('stopCamBtn').classList.remove('hidden');
+            document.getElementById('resetCamBtn').classList.remove('hidden');
+            isGameRunning = true;
+            isAnswerLocked = false;
+            document.getElementById('gestureStatusBox').innerHTML = "<i class='fas fa-spinner fa-spin'></i> Memuatkan AI Kamera...";
+
+            // Initialize camera if not already done
+            if (!gestureCamera) {
+                gestureCamera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await hands.send({image: videoElement});
+                    },
+                    width: 320,
+                    height: 240
+                });
+            }
+            try {
+                await gestureCamera.start();
+                if (!isGameRunning) gestureCamera.stop();
+            } catch (error) {
+                stopGestureGame();
+                document.getElementById('gestureStatusBox').textContent = 'Kamera tidak dapat dimulakan. Semak kebenaran kamera, sambungan internet dan pastikan kamera tidak digunakan aplikasi lain.';
+            }
+        }
+
+        // Function to stop the camera and game
+        function stopGestureGame() {
+            if (gestureCamera) {
+                gestureCamera.stop();
+            }
+            isGameRunning = false;
+            // Reset UI
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            document.getElementById('camPlaceholder').style.display = 'block';
+            document.getElementById('startCamBtn').classList.remove('hidden');
+            document.getElementById('stopCamBtn').classList.add('hidden');
+            document.getElementById('resetCamBtn').classList.add('hidden');
+            const statusBox = document.getElementById('gestureStatusBox');
+            statusBox.innerHTML = "Kamera Dihentikan.";
+            statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent";
+        }
+
+        // Function to evaluate the chosen direction when user pinches
+        function lockGestureAnswer(rotation) {
+            isAnswerLocked = true;
+            // Normalize angle strictly between 0 and 360
+            let normalizedDeg = (rotation % 360 + 360) % 360;
+            const statusBox = document.getElementById('gestureStatusBox');
+            // Check if compass is pointing within the Qibla range (approx 280° - 310°)
+            if (normalizedDeg >= 280 && normalizedDeg <= 310) {
+                statusBox.innerHTML = "🎉 TEPAT SEKALI!<br><span class='text-xs'>Arah Kiblat telah dijumpai!</span>";
+                statusBox.className = "bg-emerald-100 text-emerald-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-emerald-500 animate-bounce";
+                // Add sound effect or confetti here if needed
+                // Auto reset after 5 seconds to play again
+                setTimeout(() => {
+                    if(isGameRunning) {
+                        isAnswerLocked = false;
+                        statusBox.innerHTML = "Mari cuba lagi! Buka jari anda.";
+                    }
+                }, 5000);
+            } else {
+                statusBox.innerHTML = "❌ Kurang Tepat.<br><span class='text-xs'>Buka jari dan gerakkan tangan semula!</span>";
+                statusBox.className = "bg-red-100 text-red-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-red-500";
+                // Unlock quickly (after 2 seconds) so they can try again
+                setTimeout(() => {
+                    if(isGameRunning) isAnswerLocked = false;
+                }, 2000);
+            }
+        }
+
+        // Function to reset compass rotation in AI Game
+        function resetGestureGame() {
+            currentGestureRotation = 0;
+            isAnswerLocked = false;
+            document.getElementById('gestureCompassDial').style.transform = `rotate(0deg)`;
+            const statusBox = document.getElementById('gestureStatusBox');
+            statusBox.innerHTML = "<i class='fas fa-undo'></i> Kompas di-reset. Mari mula mencari!";
+            statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-sky-400 text-sm transition-all";
+        }
+    </script>
+</body>
+</html>
