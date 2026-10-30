@@ -88,6 +88,142 @@
         .storage-notice { font-size: 14px; line-height: 1.6; color: #475569; margin: 12px 0; }
         .form-error { color: #b91c1c; margin-top: 8px; }
         @media (max-width: 380px) { #gesture-game { padding-left: 8px; padding-right: 8px; } }
+
+        /* Kamera Kiblat: immersive fullscreen layout (native + iOS fallback). */
+        #gesture-game { isolation: isolate; }
+        #gestureFullscreenBtn {
+            background: rgba(255,255,255,.96); color: #073B4C;
+            border: 2px solid rgba(255,255,255,.95);
+            box-shadow: 0 6px 18px rgba(7,59,76,.2);
+        }
+        #gestureFullscreenBtn:hover { background: #FFD166; }
+        #gestureFullscreenBtn:focus-visible { outline: 3px solid #FFD166; outline-offset: 4px; }
+        #gesture-game.gesture-fullscreen-active {
+            position: fixed; inset: 0; width: 100vw; width: 100dvw;
+            height: 100vh; height: 100dvh; max-width: none; max-height: none;
+            margin: 0; padding: clamp(12px, 2vh, 28px) clamp(12px, 2.5vw, 34px);
+            padding-top: max(12px, env(safe-area-inset-top));
+            padding-bottom: max(12px, env(safe-area-inset-bottom));
+            border: 0; border-radius: 0;
+            background: linear-gradient(125deg, #064e3b, #047857 54%, #0f766e);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+            z-index: 99999;
+            box-sizing: border-box;
+        }
+        #gesture-game:fullscreen { width: 100vw; height: 100dvh; }
+        #gesture-game:-webkit-full-screen { width: 100vw; height: 100dvh; }
+        body.gesture-fullscreen-fallback { overflow: hidden !important; }
+        #gesture-game.gesture-fullscreen-active #gestureGameIntro {
+            flex-shrink: 0; margin: 0 auto 12px; padding: 0 90px; max-width: 1100px;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureGameIntro h3 {
+            margin-top: 3px; font-size: clamp(22px, 3vw, 38px); line-height: 1.15;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureGameIntro p {
+            margin-top: 6px; font-size: clamp(12px, 1.3vw, 15px); line-height: 1.35;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureGameLayout {
+            flex: 1 1 auto; min-height: 0; width: 100%; max-width: 1500px;
+            display: flex; flex-direction: row; align-items: center;
+            justify-content: center; gap: clamp(16px, 3vw, 54px);
+        }
+        #gesture-game.gesture-fullscreen-active #gestureCameraPanel {
+            flex: 0 1 auto; min-width: 0; padding: clamp(8px, 1.2vw, 18px);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureCameraViewport {
+            width: min(55vw, 930px, calc((100dvh - 215px) * 4 / 3));
+            height: auto; aspect-ratio: 4 / 3;
+            min-width: 0; max-width: 100%; flex-shrink: 1;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureCameraViewport canvas {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureGameControls { margin-top: 12px; flex-wrap: wrap; }
+        #gesture-game.gesture-fullscreen-active #gestureGameControls button { min-height: 44px; }
+        #gesture-game.gesture-fullscreen-active #gestureCompassPanel {
+            flex: 0 1 340px; min-width: 0; gap: clamp(10px, 2vh, 26px);
+        }
+        #gesture-game.gesture-fullscreen-active #gestureCompassRing {
+            width: clamp(170px, 28vw, 340px);
+            height: auto; aspect-ratio: 1 / 1;
+            flex-shrink: 0;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureCompassDial > div:nth-child(1),
+        #gesture-game.gesture-fullscreen-active #gestureCompassDial > div:nth-child(2) {
+            height: 41%;
+        }
+        #gesture-game.gesture-fullscreen-active #gestureStatusBox {
+            width: 100%; max-width: 340px; padding: 12px;
+            font-size: clamp(13px, 1.6vw, 17px);
+        }
+        #gesture-game.gesture-fullscreen-active #gestureGameNote { display: none; }
+        #gesture-game.gesture-fullscreen-active #gestureZoneLabels { display: flex !important; }
+        #gesture-game.gesture-fullscreen-active .gesture-decor { display: none; }
+        #gesture-game.gesture-fullscreen-active #gestureFullscreenToolbar {
+            position: absolute; right: max(12px, env(safe-area-inset-right));
+            top: max(12px, env(safe-area-inset-top)); z-index: 30;
+        }
+        @media (max-width: 740px) and (orientation: portrait) {
+            #gesture-game.gesture-fullscreen-active { justify-content: flex-start; padding: 10px; }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro {
+                padding: 0 58px; margin: 0 0 8px; width: 100%;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro > span { display: none; }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro h3 { font-size: 20px; margin: 4px 0 0; }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro p { display: none; }
+            #gesture-game.gesture-fullscreen-active #gestureGameLayout {
+                flex: 1 0 auto; min-height: auto; flex-direction: column;
+                justify-content: flex-start; gap: 10px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureCameraPanel {
+                width: min(100%, 600px); flex: 0 0 auto; padding: 8px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureCameraViewport {
+                width: min(100%, calc((100dvh - 365px) * 4 / 3));
+                min-width: min(100%, 240px); max-height: 46dvh;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureGameControls { margin-top: 8px; }
+            #gesture-game.gesture-fullscreen-active #gestureGameControls button {
+                padding: 9px 12px; font-size: 14px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureCompassPanel {
+                flex: 0 0 auto; width: 100%; gap: 8px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureCompassRing {
+                width: min(36dvh, 48vw, 230px);
+            }
+            #gesture-game.gesture-fullscreen-active #gestureStatusBox { max-width: 340px; padding: 8px; }
+            #gesture-game.gesture-fullscreen-active #gestureFullscreenBtn { padding: 8px 10px; }
+        }
+        @media (max-height: 600px) and (orientation: landscape) {
+            #gesture-game.gesture-fullscreen-active { padding: 7px 12px; }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro {
+                padding: 0 84px; margin-bottom: 4px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro > span,
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro p { display: none; }
+            #gesture-game.gesture-fullscreen-active #gestureGameIntro h3 { font-size: 19px; margin: 0; }
+            #gesture-game.gesture-fullscreen-active #gestureGameLayout { gap: 12px; }
+            #gesture-game.gesture-fullscreen-active #gestureCameraPanel { padding: 5px; }
+            #gesture-game.gesture-fullscreen-active #gestureCameraViewport {
+                width: min(55vw, calc((100dvh - 102px) * 4 / 3));
+            }
+            #gesture-game.gesture-fullscreen-active #gestureGameControls { margin-top: 5px; gap: 6px; }
+            #gesture-game.gesture-fullscreen-active #gestureGameControls button {
+                padding: 7px 12px; font-size: 13px;
+            }
+            #gesture-game.gesture-fullscreen-active #gestureCompassPanel { flex: 0 1 220px; gap: 6px; }
+            #gesture-game.gesture-fullscreen-active #gestureCompassRing {
+                width: min(37dvh, 22vw, 210px);
+            }
+            #gesture-game.gesture-fullscreen-active #gestureStatusBox { font-size: 12px; padding: 5px; }
+        }
+        @media (max-height: 520px) and (orientation: portrait) {
+            #gesture-game.gesture-fullscreen-active #gestureCameraViewport { min-width: 180px; }
+            #gesture-game.gesture-fullscreen-active #gestureCompassRing { width: 140px; }
+        }
     </style>
 </head>
 <body class="bg-amber-50 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-brandYellow selection:text-brandDarkBlue">
@@ -279,8 +415,14 @@
         </section>
 
         <!-- Section 3.5: Permainan Tangan AI (Gesture Game) -->
-        <section id="gesture-game" class="bg-gradient-to-r from-teal-400 to-emerald-500 rounded-3xl p-6 md:p-8 shadow-xl border-2 border-emerald-300 text-white relative overflow-hidden">
-            <div class="text-center max-w-3xl mx-auto mb-6 relative z-10">
+        <section id="gesture-game" class="bg-gradient-to-r from-teal-400 to-emerald-500 rounded-3xl p-6 md:p-8 shadow-xl border-2 border-emerald-300 text-white relative overflow-hidden" aria-label="Permainan Kamera Kiblat">
+            <div id="gestureFullscreenToolbar" class="flex justify-end mb-3 relative z-30">
+                <button type="button" id="gestureFullscreenBtn" onclick="toggleGestureFullscreen()" aria-label="Buka permainan kamera dalam skrin penuh" aria-pressed="false" class="px-4 py-2.5 rounded-xl font-bold text-sm transition flex items-center gap-2">
+                    <i id="gestureFullscreenIcon" class="fas fa-expand" aria-hidden="true"></i>
+                    <span id="gestureFullscreenText">Skrin Penuh</span>
+                </button>
+            </div>
+            <div id="gestureGameIntro" class="text-center max-w-3xl mx-auto mb-6 relative z-10">
                 <span class="bg-brandYellow text-brandDarkBlue px-3 py-1 rounded-full text-xs font-bold shadow">Inovasi AI Cilik 🤖</span>
                 <h3 class="text-2xl md:text-4xl font-extrabold mt-3 drop-shadow-md">
                     🤚 Permainan Kamera Kiblat
@@ -291,20 +433,26 @@
                 </p>
             </div>
 
-            <div class="flex flex-col lg:flex-row gap-8 items-center justify-center relative z-10">
+            <div id="gestureGameLayout" class="flex flex-col lg:flex-row gap-8 items-center justify-center relative z-10">
                 <!-- Camera Feed Box -->
-                <div class="bg-white/20 p-4 rounded-3xl border-4 border-white/40 shadow-2xl backdrop-blur-sm flex-shrink-0">
-                    <div class="relative w-[280px] h-[210px] md:w-[320px] md:h-[240px] bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner">
+                <div id="gestureCameraPanel" class="bg-white/20 p-4 rounded-3xl border-4 border-white/40 shadow-2xl backdrop-blur-sm flex-shrink-0">
+                    <div id="gestureCameraViewport" class="relative w-[280px] h-[210px] md:w-[320px] md:h-[240px] bg-slate-800 rounded-2xl overflow-hidden flex items-center justify-center shadow-inner">
                         <video id="videoElement" class="hidden" autoplay playsinline></video>
                         <!-- Canvas is mirrored using css transform to act like a mirror -->
-                        <canvas width="320" height="240" id="outputCanvas" class="absolute top-0 left-0 w-full h-full object-cover transform -scale-x-100"></canvas>
+                        <canvas width="640" height="480" id="outputCanvas" class="absolute top-0 left-0 w-full h-full object-cover transform -scale-x-100"></canvas>
+                        <!-- On-screen guidance for the mirrored gesture camera -->
+                        <div id="gestureZoneLabels" class="hidden pointer-events-none absolute bottom-2 left-2 right-2 justify-between items-center gap-1 text-[10px] sm:text-xs font-bold text-white drop-shadow-lg z-10" aria-hidden="true">
+                            <span class="rounded-lg bg-black/50 px-2 py-1">← KIRI</span>
+                            <span class="rounded-lg bg-black/50 px-2 py-1">TENGAH</span>
+                            <span class="rounded-lg bg-black/50 px-2 py-1">KANAN →</span>
+                        </div>
                         <!-- Placeholder when cam is off -->
                         <div id="camPlaceholder" class="text-center text-slate-400 font-comic">
                             <i class="fas fa-camera text-5xl mb-3 text-slate-500 animate-pulse"></i>
                             <p class="text-sm font-bold text-slate-300">Klik butang untuk buka kamera</p>
                         </div>
                     </div>
-                    <div class="mt-5 text-center flex justify-center gap-3">
+                    <div id="gestureGameControls" class="mt-5 text-center flex justify-center gap-3">
                         <button id="startCamBtn" onclick="startGestureGame()" class="bg-brandYellow text-brandDarkBlue font-bold px-6 py-3 rounded-2xl shadow-lg hover:bg-yellow-300 transition hover:-translate-y-1">
                             <i class="fas fa-play mr-1"></i> Mula Main
                         </button>
@@ -318,8 +466,8 @@
                 </div>
 
                 <!-- Game Compass & Feedback -->
-                <div class="flex flex-col items-center space-y-6">
-                    <div class="w-64 h-64 md:w-72 md:h-72 rounded-full border-8 border-white bg-amber-50 shadow-2xl relative flex items-center justify-center p-2">
+                <div id="gestureCompassPanel" class="flex flex-col items-center space-y-6">
+                    <div id="gestureCompassRing" class="w-64 h-64 md:w-72 md:h-72 rounded-full border-8 border-white bg-amber-50 shadow-2xl relative flex items-center justify-center p-2">
                         <div class="absolute text-sm font-bold text-red-600 top-2">U</div>
                         <div class="absolute text-sm font-bold text-gray-500 bottom-2">S</div>
                         <div class="absolute text-sm font-bold text-gray-500 right-3">T</div>
@@ -339,10 +487,10 @@
                     </div>
                 </div>
             </div>
-            <p class="text-center text-sm mt-5 relative z-10">Kamera AI memerlukan internet dan kebenaran kamera. Jika kamera disekat ketika membuka fail, gunakan pautan HTTPS atau localhost.</p>
+            <p id="gestureGameNote" class="text-center text-sm mt-5 relative z-10">Kamera AI memerlukan internet dan kebenaran kamera. Jika kamera disekat ketika membuka fail, gunakan pautan HTTPS atau localhost.</p>
             <!-- Decorative Elements -->
-            <div class="absolute -top-20 -left-20 text-9xl opacity-10">✋</div>
-            <div class="absolute -bottom-10 -right-10 text-9xl opacity-10">🧭</div>
+            <div class="gesture-decor absolute -top-20 -left-20 text-9xl opacity-10 pointer-events-none">✋</div>
+            <div class="gesture-decor absolute -bottom-10 -right-10 text-9xl opacity-10 pointer-events-none">🧭</div>
         </section>
 
         <!-- Section 4: Kuiz Interaktif (Kiblat Quest) -->
@@ -953,6 +1101,66 @@
 
         }
 
+
+        // Fullscreen game with an immersive CSS fallback for iPhones/iPads that
+        // do not permit fullscreen on arbitrary page sections.
+        const gestureGameSection = document.getElementById('gesture-game');
+        let gestureFullscreenFallback = false;
+
+        function gestureFullscreenIsActive() {
+            return document.fullscreenElement === gestureGameSection ||
+                document.webkitFullscreenElement === gestureGameSection ||
+                gestureFullscreenFallback;
+        }
+
+        function syncGestureFullscreenUI() {
+            const active = gestureFullscreenIsActive();
+            gestureGameSection.classList.toggle('gesture-fullscreen-active', active);
+            document.body.classList.toggle('gesture-fullscreen-fallback', gestureFullscreenFallback);
+            document.getElementById('gestureFullscreenText').textContent = active ? 'Keluar Skrin Penuh' : 'Skrin Penuh';
+            document.getElementById('gestureFullscreenIcon').className = active ? 'fas fa-compress' : 'fas fa-expand';
+            const button = document.getElementById('gestureFullscreenBtn');
+            button.setAttribute('aria-pressed', String(active));
+            button.setAttribute('aria-label', active ? 'Keluar daripada skrin penuh' : 'Buka permainan kamera dalam skrin penuh');
+        }
+
+        function enterGestureFullscreen() {
+            if (gestureFullscreenIsActive()) return;
+            if (typeof gestureGameSection.requestFullscreen === 'function') {
+                // Must be called directly from the button click / Start gesture.
+                try {
+                    Promise.resolve(gestureGameSection.requestFullscreen()).catch(() => {
+                        gestureFullscreenFallback = true;
+                        syncGestureFullscreenUI();
+                    });
+                    return;
+                } catch (_) { /* Use fixed-position fallback below. */ }
+            }
+            gestureFullscreenFallback = true;
+            syncGestureFullscreenUI();
+        }
+
+        function exitGestureFullscreen() {
+            gestureFullscreenFallback = false;
+            syncGestureFullscreenUI();
+            if (document.fullscreenElement === gestureGameSection && document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            } else if (document.webkitFullscreenElement === gestureGameSection && document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+        }
+
+        function toggleGestureFullscreen() {
+            if (gestureFullscreenIsActive()) exitGestureFullscreen();
+            else enterGestureFullscreen();
+        }
+
+        document.addEventListener('fullscreenchange', syncGestureFullscreenUI);
+        document.addEventListener('webkitfullscreenchange', syncGestureFullscreenUI);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && gestureFullscreenFallback) exitGestureFullscreen();
+        });
+
         // Function to start the camera and game
         async function startGestureGame() {
             if (!hands || typeof Camera !== 'function') {
@@ -963,6 +1171,8 @@
                 document.getElementById('gestureStatusBox').textContent = 'Kamera tidak tersedia. Cuba pelayar terkini melalui HTTPS atau localhost dan benarkan akses kamera.';
                 return;
             }
+            // Starting the game opens the immersive view automatically.
+            enterGestureFullscreen();
             document.getElementById('camPlaceholder').style.display = 'none';
             document.getElementById('startCamBtn').classList.add('hidden');
             document.getElementById('stopCamBtn').classList.remove('hidden');
@@ -977,8 +1187,8 @@
                     onFrame: async () => {
                         await hands.send({image: videoElement});
                     },
-                    width: 320,
-                    height: 240
+                    width: 640,
+                    height: 480
                 });
             }
             try {
