@@ -89,6 +89,33 @@
         .form-error { color: #b91c1c; margin-top: 8px; }
         @media (max-width: 380px) { #gesture-game { padding-left: 8px; padding-right: 8px; } }
 
+
+        /* Kaabah marker and success notification share the same target bearing. */
+        #gestureCompassRing .gesture-kaabah-marker {
+            position: absolute; z-index: 4; left: 14.8%; top: 35.8%;
+            transform: translate(-50%, -50%); line-height: 1;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
+            pointer-events: none;
+        }
+        #gestureCompassRing.gesture-on-target {
+            border-color: #bbf7d0;
+            box-shadow: 0 0 0 5px rgba(110,231,183,.65), 0 0 35px rgba(52,211,153,.8);
+        }
+        #gestureTargetNotice {
+            position: absolute; z-index: 7; left: 50%; bottom: 9%;
+            transform: translate(-50%, 8px) scale(.95);
+            opacity: 0; visibility: hidden; pointer-events: none;
+            white-space: nowrap; padding: .35rem .85rem;
+            border-radius: 9999px; border: 2px solid #16a34a;
+            background: #dcfce7; color: #14532d; font-weight: 900;
+            font-size: clamp(.85rem, 2.5vw, 1.2rem);
+            box-shadow: 0 8px 18px rgba(0,0,0,.2);
+            transition: opacity .15s ease, transform .15s ease, visibility .15s;
+        }
+        #gestureCompassRing.gesture-on-target #gestureTargetNotice {
+            opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1);
+        }
+
         /* Kamera Kiblat: immersive fullscreen layout (native + iOS fallback). */
         #gesture-game { isolation: isolate; }
         #gestureFullscreenBtn {
@@ -429,7 +456,7 @@
                 </h3>
                 <p class="text-emerald-50 font-comic mt-2 text-sm md:text-base">
                     Gunakan kamera peranti anda! Letakkan tangan di <strong>sebelah kiri atau kanan skrin</strong> untuk memusingkan kompas. Letak di <strong>tengah</strong> untuk berhenti.
-                    Bila sudah menghadap barat laut, <strong>cubit jari</strong> (temukan ibu jari & telunjuk) untuk kunci jawapan!
+                    Apabila <strong>jarum merah tepat menghadap ikon Kaabah</strong>, notifikasi <strong>TEPAT!</strong> muncul secara automatik. <strong>Cubit jari</strong> untuk mengunci jawapan!
                 </p>
             </div>
 
@@ -472,17 +499,18 @@
                         <div class="absolute text-sm font-bold text-gray-500 bottom-2">S</div>
                         <div class="absolute text-sm font-bold text-gray-500 right-3">T</div>
                         <div class="absolute text-sm font-bold text-gray-500 left-3">B</div>
-                        <div class="absolute top-10 left-8 text-3xl opacity-50" title="Arah Kiblat">🕋</div>
+                        <div id="gestureKaabahTarget" class="gesture-kaabah-marker text-3xl" title="Sasaran Kaabah">🕋</div>
                         <!-- Gesture Compass Needle -->
                         <div id="gestureCompassDial" class="w-full h-full absolute flex items-center justify-center transition-transform duration-75">
                             <div class="w-4 h-28 bg-red-500 rounded-t-full absolute -top-0 shadow-md"></div>
                             <div class="w-4 h-28 bg-slate-400 rounded-b-full absolute -bottom-0 shadow-md"></div>
                             <div class="w-10 h-10 bg-brandYellow border-4 border-brandDarkBlue rounded-full z-10 shadow-lg"></div>
                         </div>
+                        <div id="gestureTargetNotice" aria-hidden="true">🎉 TEPAT!</div>
                     </div>
 
                     <!-- Status Display -->
-                    <div id="gestureStatusBox" class="bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent transition-all">
+                    <div id="gestureStatusBox" role="status" aria-live="polite" aria-atomic="true" class="bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent transition-all">
                         <i class="fas fa-info-circle text-brandBlue mr-1"></i> Kamera belum aktif.
                     </div>
                 </div>
@@ -1023,6 +1051,46 @@
         let isGameRunning = false;
         let isAnswerLocked = false;
         let currentGestureRotation = 0;
+        let wasGesturePinching = false;
+        let gestureAnswerTimer = null;
+
+        // Both the Kaabah icon and detection use this ONE target angle.
+        // This is a game illustration, not a live compass/Qibla measurement.
+        const GESTURE_KIBLAT_TARGET_DEG = 292;
+        const GESTURE_KIBLAT_TOLERANCE_DEG = 10;
+        const gestureCompassRing = document.getElementById('gestureCompassRing');
+        const gestureKaabahTarget = document.getElementById('gestureKaabahTarget');
+        const targetRadians = GESTURE_KIBLAT_TARGET_DEG * Math.PI / 180;
+        gestureKaabahTarget.style.left = `${50 + 38 * Math.sin(targetRadians)}%`;
+        gestureKaabahTarget.style.top = `${50 - 38 * Math.cos(targetRadians)}%`;
+
+        function gesturePointsAtKaabah(rotation) {
+            // Shortest circular distance also works for negative/360+ rotations.
+            const difference = (((rotation - GESTURE_KIBLAT_TARGET_DEG + 540) % 360) + 360) % 360 - 180;
+            return Math.abs(difference) <= GESTURE_KIBLAT_TOLERANCE_DEG;
+        }
+
+        function setGestureStatus(markup, className) {
+            const box = document.getElementById('gestureStatusBox');
+            if (box.innerHTML !== markup) box.innerHTML = markup;
+            if (box.className !== className) box.className = className;
+        }
+
+        function updateGestureTargetFeedback(directionText = '✋ Di Tengah (Berhenti)') {
+            const correct = gesturePointsAtKaabah(currentGestureRotation);
+            gestureCompassRing.classList.toggle('gesture-on-target', correct);
+            if (correct) {
+                setGestureStatus(
+                    '🎉 <strong>TEPAT!</strong> Jarum merah menghadap Kaabah!<br><span class="text-xs">Cubit jari untuk mengunci jawapan.</span>',
+                    'bg-emerald-100 text-emerald-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-emerald-500 transition-all'
+                );
+            } else {
+                setGestureStatus(
+                    `<span class="text-brandPurple">${directionText}</span><br><span class="text-xs">Gerakkan jarum merah ke arah Kaabah.</span>`,
+                    'bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-brandPurple text-sm transition-all'
+                );
+            }
+        }
 
         // Initialize MediaPipe Hands Configuration
         const hands = typeof Hands === 'function' ? new Hands({locateFile: (file) => {
@@ -1062,10 +1130,15 @@
                     const dy = indexTip.y - thumbTip.y;
                     const dist = Math.sqrt(dx*dx + dy*dy);
                     const isPinching = dist < 0.06; // Sensitiviti dipermudahkan sedikit untuk kanak-kanak
-                    const statusBox = document.getElementById('gestureStatusBox');
                     if (isPinching) {
-                        lockGestureAnswer(currentGestureRotation);
+                        // Trigger only once per pinch; holding fingers together must
+                        // not repeatedly submit after the answer timer ends.
+                        if (!wasGesturePinching) {
+                            wasGesturePinching = true;
+                            lockGestureAnswer(currentGestureRotation);
+                        }
                     } else {
+                        wasGesturePinching = false;
                         // Kawalan Pusingan Kompas Berterusan (Zon Kiri/Kanan)
                         // Video adalah 'mirrored', jadi paksi fizikal ialah (1 - x)
                         const physicalX = 1 - indexTip.x; 
@@ -1083,17 +1156,21 @@
                             directionText = "⏩ Pusing Kanan";
                         }
 
-                        // Kemas kini visual kompas
+                        // Notification appears immediately when the red needle
+                        // points at the visually aligned Kaabah icon (no pinch needed).
                         document.getElementById('gestureCompassDial').style.transform = `rotate(${currentGestureRotation}deg)`;
-                        statusBox.innerHTML = `<span class='text-brandPurple'>${directionText}</span><br><span class='text-xs'>Cubit jari bila arah tepat!</span>`;
-                        statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-brandPurple text-sm transition-all";
+                        updateGestureTargetFeedback(directionText);
                     }
                 }
             } else {
-                if (!isAnswerLocked) {
-                    const statusBox = document.getElementById('gestureStatusBox');
-                    statusBox.innerHTML = "<i class='fas fa-search'></i> Mencari tangan anda... Tunjuk ke kamera!";
-                    statusBox.className = "bg-white/95 text-gray-500 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent text-sm";
+                wasGesturePinching = false;
+                // Keep the success notification visible while the needle remains
+                // aligned, even if the user's hand briefly leaves the camera.
+                if (!isAnswerLocked && !gesturePointsAtKaabah(currentGestureRotation)) {
+                    setGestureStatus(
+                        "<i class='fas fa-search'></i> Mencari tangan anda... Tunjuk ke kamera!",
+                        'bg-white/95 text-gray-500 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent text-sm'
+                    );
                 }
             }
             canvasCtx.restore();
@@ -1179,6 +1256,9 @@
             document.getElementById('resetCamBtn').classList.remove('hidden');
             isGameRunning = true;
             isAnswerLocked = false;
+            wasGesturePinching = false;
+            clearTimeout(gestureAnswerTimer);
+            gestureCompassRing.classList.remove('gesture-on-target');
             document.getElementById('gestureStatusBox').innerHTML = "<i class='fas fa-spinner fa-spin'></i> Memuatkan AI Kamera...";
 
             // Initialize camera if not already done
@@ -1206,6 +1286,10 @@
                 gestureCamera.stop();
             }
             isGameRunning = false;
+            wasGesturePinching = false;
+            isAnswerLocked = false;
+            clearTimeout(gestureAnswerTimer);
+            gestureCompassRing.classList.remove('gesture-on-target');
             // Reset UI
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             document.getElementById('camPlaceholder').style.display = 'block';
@@ -1217,42 +1301,49 @@
             statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-transparent";
         }
 
-        // Function to evaluate the chosen direction when user pinches
+        // Evaluate the pinch against the exact same target used for the icon
+        // and automatic notification (no separate, mismatched angle range).
         function lockGestureAnswer(rotation) {
+            if (!isGameRunning || isAnswerLocked) return;
             isAnswerLocked = true;
-            // Normalize angle strictly between 0 and 360
-            let normalizedDeg = (rotation % 360 + 360) % 360;
-            const statusBox = document.getElementById('gestureStatusBox');
-            // Check if compass is pointing within the Qibla range (approx 280° - 310°)
-            if (normalizedDeg >= 280 && normalizedDeg <= 310) {
-                statusBox.innerHTML = "🎉 TEPAT SEKALI!<br><span class='text-xs'>Arah Kiblat telah dijumpai!</span>";
-                statusBox.className = "bg-emerald-100 text-emerald-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-emerald-500 animate-bounce";
-                // Add sound effect or confetti here if needed
-                // Auto reset after 5 seconds to play again
-                setTimeout(() => {
-                    if(isGameRunning) {
-                        isAnswerLocked = false;
-                        statusBox.innerHTML = "Mari cuba lagi! Buka jari anda.";
-                    }
-                }, 5000);
+            clearTimeout(gestureAnswerTimer);
+            if (gesturePointsAtKaabah(rotation)) {
+                gestureCompassRing.classList.add('gesture-on-target');
+                setGestureStatus(
+                    '🏆 <strong>TEPAT SEKALI!</strong><br><span class="text-xs">Tahniah! Jarum merah betul-betul menghadap Kaabah!</span>',
+                    'bg-emerald-100 text-emerald-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-emerald-500 transition-all'
+                );
+                gestureAnswerTimer = setTimeout(() => {
+                    if (!isGameRunning) return;
+                    isAnswerLocked = false;
+                    updateGestureTargetFeedback('✋ Main lagi!');
+                }, 3500);
             } else {
-                statusBox.innerHTML = "❌ Kurang Tepat.<br><span class='text-xs'>Buka jari dan gerakkan tangan semula!</span>";
-                statusBox.className = "bg-red-100 text-red-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-red-500";
-                // Unlock quickly (after 2 seconds) so they can try again
-                setTimeout(() => {
-                    if(isGameRunning) isAnswerLocked = false;
-                }, 2000);
+                gestureCompassRing.classList.remove('gesture-on-target');
+                setGestureStatus(
+                    '❌ <strong>Belum Tepat.</strong><br><span class="text-xs">Buka jari dan arahkan jarum merah ke ikon Kaabah.</span>',
+                    'bg-red-100 text-red-900 p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-red-500 transition-all'
+                );
+                gestureAnswerTimer = setTimeout(() => {
+                    if (!isGameRunning) return;
+                    isAnswerLocked = false;
+                    updateGestureTargetFeedback('✋ Cuba lagi!');
+                }, 1600);
             }
         }
 
-        // Function to reset compass rotation in AI Game
+        // Reset compass and remove the previous success notice.
         function resetGestureGame() {
+            clearTimeout(gestureAnswerTimer);
             currentGestureRotation = 0;
             isAnswerLocked = false;
-            document.getElementById('gestureCompassDial').style.transform = `rotate(0deg)`;
-            const statusBox = document.getElementById('gestureStatusBox');
-            statusBox.innerHTML = "<i class='fas fa-undo'></i> Kompas di-reset. Mari mula mencari!";
-            statusBox.className = "bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-sky-400 text-sm transition-all";
+            wasGesturePinching = false;
+            gestureCompassRing.classList.remove('gesture-on-target');
+            document.getElementById('gestureCompassDial').style.transform = 'rotate(0deg)';
+            setGestureStatus(
+                "<i class='fas fa-undo'></i> Kompas di-reset. Mari mula mencari!",
+                'bg-white/95 text-brandDarkBlue p-4 rounded-2xl shadow-lg font-bold text-center w-full max-w-xs border-4 border-sky-400 text-sm transition-all'
+            );
         }
     </script>
 </body>
